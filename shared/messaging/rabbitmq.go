@@ -171,7 +171,7 @@ func (r *RabbitMQ) ConsumeMessages(qName string, handler MessageHandler) error {
 	go func() {
 		for msg := range msgs {
 			if err := handler(ctx, msg); err != nil {
-				log.Printf("ERROR: Failed to handle message: %v. Message body: %v", err, msg.Body)
+				log.Printf("ERROR: Failed to handle message: %v.", err)
 				if nackErr := msg.Nack(false, false); nackErr != nil {
 					log.Printf("ERROR: Failed to nack msg: %s", nackErr)
 				}

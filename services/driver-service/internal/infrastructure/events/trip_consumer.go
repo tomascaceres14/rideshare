@@ -39,7 +39,7 @@ func (tc *TripEventConsumer) Listen() error {
 			return err
 		}
 
-		log.Printf("Driver received trip message: %v", payload)
+		log.Printf("Driver received trip message")
 		switch msg.RoutingKey {
 		case contracts.TripEventCreated:
 			return tc.handleFindAndNotifyDrivers(ctx, payload)
