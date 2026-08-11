@@ -78,7 +78,7 @@ func (tc *TripEventConsumer) handleFindAndNotifyDrivers(ctx context.Context, tri
 		Data:    response,
 	})
 	if err != nil {
-		log.Printf("Failed to publish message to exchange: %v, err")
+		log.Printf("Failed to publish message to exchange: %v", err)
 	}
 
 	return nil
