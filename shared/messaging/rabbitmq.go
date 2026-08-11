@@ -155,7 +155,7 @@ func (r *RabbitMQ) ConsumeMessages(qName string, handler MessageHandler) error {
 	msgs, err := r.Chan.Consume(
 		qName, // queue
 		"",    // consumer
-		true,  // auto-ack
+		false, // auto-ack
 		false, // exclusive
 		false, // no-local
 		false, // no-wait
@@ -171,7 +171,7 @@ func (r *RabbitMQ) ConsumeMessages(qName string, handler MessageHandler) error {
 	go func() {
 		for msg := range msgs {
 			if err := handler(ctx, msg); err != nil {
-				log.Printf("ERROR: Failed to handle message: %v. Message boddy: %v", err, msg.Body)
+				log.Printf("ERROR: Failed to handle message: %v. Message body: %v", err, msg.Body)
 				if nackErr := msg.Nack(false, false); nackErr != nil {
 					log.Printf("ERROR: Failed to nack msg: %s", nackErr)
 				}
