@@ -2,11 +2,17 @@ package messaging
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
+	"ride-sharing/shared/contracts"
 
 	amqp "github.com/rabbitmq/amqp091-go"
+)
+
+const (
+	TripExchange = "trip"
 )
 
 type RabbitMQ struct {
@@ -44,42 +50,91 @@ func NewRabbitMQ(uri string) (*RabbitMQ, error) {
 }
 
 func (r *RabbitMQ) Close() {
-	if r.conn != nil {
-		r.Close()
-	}
-
 	if r.Chan != nil {
 		r.Chan.Close()
+	}
+
+	if r.conn != nil {
+		r.conn.Close()
 	}
 }
 
 func (r *RabbitMQ) setupExchangesAndQueues() error {
-	_, err := r.Chan.QueueDeclare(
-		"hello", // name
-		true,    // durability
-		false,   // delete when unused
-		false,   // exclusive
-		false,   // no-wait
+
+	err := r.Chan.ExchangeDeclare(
+		TripExchange,       // name
+		amqp.ExchangeTopic, // type
+		false,              // durability
+		false,              // auto-deleted
+		false,              // internal
+		false,              // no-wait
+		nil,                // arguments
+	)
+	if err != nil {
+		return fmt.Errorf("Error declaring Exchange: %s. Error: %s", TripExchange, err)
+	}
+
+	err = r.declareAndBindQueue(
+		FindAvailableDriversQueue,
+		TripExchange,
+		[]string{
+			contracts.TripEventCreated,
+			contracts.TripEventDriverNotInterested,
+		},
+	)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (r *RabbitMQ) declareAndBindQueue(queueName string, exchange string, routingKeys []string) error {
+	q, err := r.Chan.QueueDeclare(
+		queueName, // name
+		true,      // durability
+		false,     // delete when unused
+		false,     // exclusive
+		false,     // no-wait
 		amqp.Table{
 			amqp.QueueTypeArg: amqp.QueueTypeQuorum,
 		},
 	)
 	if err != nil {
-		return fmt.Errorf("Error declaring queue: %s", err)
+		return fmt.Errorf("Error declaring Queue: %s. Error: %s", q.Name, err)
+	}
+
+	for _, v := range routingKeys {
+		err = r.Chan.QueueBind(
+			q.Name,   // queue name
+			v,        // routing key
+			exchange, // exchange
+			false,
+			nil,
+		)
+		if err != nil {
+			return fmt.Errorf("Error declaring QueueBind: %s. Error: %s", q.Name, err)
+		}
 	}
 
 	return nil
 }
 
-func (r *RabbitMQ) PublishMessage(ctx context.Context, routingKey string, message string) error {
+func (r *RabbitMQ) PublishMessage(ctx context.Context, routingKey string, msg contracts.AmqpMessage) error {
+	log.Printf("Publishing msg with routing key: %s", routingKey)
+
+	jsonMsg, err := json.Marshal(msg)
+	if err != nil {
+		return fmt.Errorf("Error marshaling message: %s", err)
+	}
+
 	return r.Chan.PublishWithContext(ctx,
-		"",         // exchange
-		routingKey, // routing key
-		false,      // mandatory
-		false,      // immediate
+		TripExchange, // exchange
+		routingKey,   // routing key
+		false,        // mandatory
+		false,        // immediate
 		amqp.Publishing{
 			ContentType:  "text/plain",
-			Body:         []byte(message),
+			Body:         jsonMsg,
 			DeliveryMode: amqp.Persistent,
 		})
 }
@@ -87,6 +142,16 @@ func (r *RabbitMQ) PublishMessage(ctx context.Context, routingKey string, messag
 type MessageHandler func(context.Context, amqp.Delivery) error
 
 func (r *RabbitMQ) ConsumeMessages(qName string, handler MessageHandler) error {
+
+	err := r.Chan.Qos(
+		1,     // prefetchCount: Limit to 1 unacknowledged message per consumer
+		0,     // prefetchSize: No specific limit on message size
+		false, // global Apply prefetchCount to each consumer individually
+	)
+	if err != nil {
+		return fmt.Errorf("Failed to set Qos: %s", err)
+	}
+
 	msgs, err := r.Chan.Consume(
 		qName, // queue
 		"",    // consumer
@@ -105,13 +170,18 @@ func (r *RabbitMQ) ConsumeMessages(qName string, handler MessageHandler) error {
 
 	go func() {
 		for msg := range msgs {
-			log.Printf("Message received: %s", msg.Body)
 			if err := handler(ctx, msg); err != nil {
-				log.Fatalf("Failed to handle message: %v", err)
+				log.Printf("ERROR: Failed to handle message: %v. Message boddy: %v", err, msg.Body)
+				if nackErr := msg.Nack(false, false); nackErr != nil {
+					log.Printf("ERROR: Failed to nack msg: %s", nackErr)
+				}
+				continue
+			}
+
+			if ackErr := msg.Ack(false); ackErr != nil {
+				log.Printf("ERROR: Failed to ack msg: %s", ackErr)
 			}
 		}
 	}()
 	return nil
 }
-
-var forever chan struct{}

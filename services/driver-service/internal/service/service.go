@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"log"
 	"math/rand/v2"
 	"ride-sharing/services/driver-service/internal/domain"
 	driver_utils "ride-sharing/services/driver-service/utils"
@@ -25,7 +26,7 @@ func (s *DriverService) RegisterDriver(ctx context.Context, id, packageSlug stri
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	randomIndex := rand.IntN(10)
+	randomIndex := rand.IntN(4)
 	route := driver_utils.PredefinedRoutes[randomIndex]
 	avatar := util.GetRandomAvatar(randomIndex)
 	plate := driver_utils.GenerateRandomPlate()
@@ -49,4 +50,23 @@ func (s *DriverService) UnregisterDriver(ctx context.Context, id string) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	s.repo.DeleteDriver(ctx, id)
+}
+
+func (s *DriverService) FindAvailableDrivers(ctx context.Context, pkgType string) []string {
+	var matches []string
+	drivers, err := s.repo.GetAllDrivers(ctx)
+	if err != nil {
+		log.Printf("No drivers founded")
+	}
+	for _, d := range drivers {
+		if d.PackageSlug == pkgType {
+			matches = append(matches, d.Id)
+		}
+	}
+
+	if len(matches) == 0 {
+		return []string{}
+	}
+
+	return matches
 }

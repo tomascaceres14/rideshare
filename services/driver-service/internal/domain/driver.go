@@ -29,9 +29,11 @@ func (d *Driver) ToProto() *pb.Driver {
 type DriverRepository interface {
 	SaveDriver(ctx context.Context, driver *Driver) (*Driver, error)
 	DeleteDriver(ctx context.Context, id string)
+	GetAllDrivers(ctx context.Context) ([]*Driver, error)
 }
 
 type DriverService interface {
-	RegisterDriver(ctx context.Context, driver *Driver) *Driver
+	RegisterDriver(ctx context.Context, id, packageSlug string) (*Driver, error)
 	UnregisterDriver(ctx context.Context, id string)
+	FindAvailableDrivers(ctx context.Context, pkgType string) []string
 }

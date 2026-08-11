@@ -71,7 +71,7 @@ func (h *GRPCHandler) CreateTrip(ctx context.Context, req *pb.CreateTripRequest)
 		return &pb.CreateTripResponse{}, status.Errorf(codes.Internal, "Error fetching trip: %s", err)
 	}
 
-	if err := h.pub.PublishTripCreated(ctx); err != nil {
+	if err := h.pub.PublishTripCreated(ctx, trip); err != nil {
 		return nil, status.Errorf(codes.Internal, "Error publishing trip message: %s", err)
 	}
 

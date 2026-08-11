@@ -71,3 +71,14 @@ func NewTripModel(status string, fare *RideFareModel) *TripModel {
 		Driver:   &pb.Driver{},
 	}
 }
+
+func (t *TripModel) ToProto() *pb.Trip {
+	return &pb.Trip{
+		Id:           t.ID.Hex(),
+		UserID:       t.UserID,
+		Status:       t.Status,
+		SelectedFare: t.RideFare.ToProto(),
+		Route:        t.RideFare.Route.ToProto(),
+		Driver:       t.Driver,
+	}
+}

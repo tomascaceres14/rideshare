@@ -54,7 +54,7 @@ func main() {
 
 	defer rabbitMQ.Close()
 
-	consumer := events.NewTripEventPublisher(rabbitMQ)
+	consumer := events.NewTripEventPublisher(rabbitMQ, svc)
 	go func() {
 		if err := consumer.Listen(); err != nil {
 			log.Fatalf("Error listening message: %s", err)

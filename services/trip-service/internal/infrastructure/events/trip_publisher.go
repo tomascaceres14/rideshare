@@ -2,6 +2,10 @@ package events
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
+	"ride-sharing/services/trip-service/internal/domain"
+	"ride-sharing/shared/contracts"
 	"ride-sharing/shared/messaging"
 )
 
@@ -15,6 +19,16 @@ func NewTripEventPublisher(rmq *messaging.RabbitMQ) *TripEventPublisher {
 	}
 }
 
-func (tp *TripEventPublisher) PublishTripCreated(ctx context.Context) error {
-	return tp.rabbitMQ.PublishMessage(ctx, "hello", "Hola")
+func (tp *TripEventPublisher) PublishTripCreated(ctx context.Context, trip *domain.TripModel) error {
+
+	jsonTrip, err := json.Marshal(trip.ToProto())
+	if err != nil {
+		return fmt.Errorf("Error marshaling trip response: %s", err)
+	}
+
+	msg := contracts.AmqpMessage{
+		Data: jsonTrip,
+	}
+
+	return tp.rabbitMQ.PublishMessage(ctx, contracts.TripEventCreated, msg)
 }
