@@ -84,6 +84,7 @@ func (s *TripService) SaveTripFares(ctx context.Context, rideFares []*domain.Rid
 
 	return fares, nil
 }
+
 func (s *TripService) EstimatePackagesPriceWithRoute(route *domain.OsrmAPIResponse) []*domain.RideFareModel {
 	baseFares := getBaseFares()
 	estimatedFares := make([]*domain.RideFareModel, len(baseFares))

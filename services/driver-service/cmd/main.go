@@ -19,7 +19,7 @@ import (
 
 var (
 	grpcAddr = env.GetString("GRPC_ADDR", ":9092")
-	ampqUri  = env.GetString("RABBITMQ_URI", "amqp://guest:guest@rabbitmq:5672/")
+	amqpUri  = env.GetString("RABBITMQ_URI", "amqp://guest:guest@rabbitmq:5672/")
 )
 
 func main() {
@@ -47,7 +47,7 @@ func main() {
 
 	// RabbitMQ
 	log.Println("Starting RabbitMQ connection")
-	rabbitMQ, err := messaging.NewRabbitMQ(ampqUri)
+	rabbitMQ, err := messaging.NewRabbitMQ(amqpUri)
 	if err != nil {
 		log.Fatal(err)
 	}

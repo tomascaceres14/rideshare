@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"ride-sharing/shared/env"
+	"ride-sharing/shared/messaging"
 )
 
 var (
@@ -21,10 +22,20 @@ func main() {
 
 	mux := http.NewServeMux()
 
+	rb, err := messaging.NewRabbitMQ(amqpUri)
+	if err != nil {
+		log.Printf("Error creating RabbitMQ instance: %v", err)
+		return
+	}
+
 	mux.HandleFunc("POST /trip/preview", enableCORS(handleTripReview))
 	mux.HandleFunc("POST /trip/start", enableCORS(handleTripStart))
-	mux.HandleFunc("/ws/drivers", handleDriverWebSocket)
-	mux.HandleFunc("/ws/riders", handleRiderWebSocket)
+	mux.HandleFunc("/ws/drivers", func(w http.ResponseWriter, r *http.Request) {
+		handleDriverWebSocket(w, r, rb)
+	})
+	mux.HandleFunc("/ws/riders", func(w http.ResponseWriter, r *http.Request) {
+		handleRiderWebSocket(w, r, rb)
+	})
 
 	sv := &http.Server{
 		Addr:    httpAddr,
