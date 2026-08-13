@@ -36,3 +36,16 @@ func (r *InmemRepository) GetRideFareByID(ctx context.Context, id string) (*doma
 
 	return v, nil
 }
+
+func (r *InmemRepository) GetTripByID(ctx context.Context, tripID string) (*domain.TripModel, error) {
+	trip, ok := r.trips[tripID]
+	if !ok {
+		return nil, fmt.Errorf("Trip not found.")
+	}
+
+	return trip, nil
+}
+func (r *InmemRepository) UpdateTrip(ctx context.Context, trip *domain.TripModel) (*domain.TripModel, error) {
+	r.trips[trip.ID.Hex()] = trip
+	return trip, nil
+}

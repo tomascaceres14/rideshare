@@ -28,6 +28,7 @@ func main() {
 	repo := repository.NewInmemRepository()
 	svc := service.NewDriverService(repo)
 	grpc.NewGRPCHandler(server, svc)
+	
 
 	// Shutdown for K8S syscalls
 	ctx, cancel := context.WithCancel(context.Background())
@@ -54,7 +55,7 @@ func main() {
 
 	defer rabbitMQ.Close()
 
-	consumer := events.NewTripEventPublisher(rabbitMQ, svc)
+	consumer := events.NewTripEventConsumer(rabbitMQ, svc)
 	go func() {
 		if err := consumer.Listen(); err != nil {
 			log.Fatalf("Error listening message: %s", err)

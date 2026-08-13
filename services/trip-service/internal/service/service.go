@@ -114,6 +114,14 @@ func (s *TripService) GetAndValidateFare(ctx context.Context, fareID, userID str
 	return rideFare, nil
 }
 
+func (s *TripService) GetTripByID(ctx context.Context, tripID string) (*domain.TripModel, error) {
+	return s.repo.GetTripByID(ctx, tripID)
+}
+
+func (s *TripService) UpdateTrip(ctx context.Context, trip *domain.TripModel) (*domain.TripModel, error) {
+	return s.repo.UpdateTrip(ctx, trip)
+}
+
 func estimateFareRoute(f *domain.RideFareModel, route *domain.OsrmAPIResponse) *domain.RideFareModel {
 	pricing := domain.DefaultPricing()
 	distance := route.Routes[0].Distance * pricing.PricePerDistanceUnit

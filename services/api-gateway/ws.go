@@ -123,6 +123,7 @@ func handleDriverWebSocket(w http.ResponseWriter, r *http.Request, rb *messaging
 	// Listen incoming messages
 	queues := []string{
 		messaging.DriverCmdTripRequestQueue,
+		messaging.NotifyDriverAssignQueue,
 	}
 
 	for _, q := range queues {

@@ -47,6 +47,8 @@ func main() {
 	defer rabbitMQ.Close()
 
 	publisher := events.NewTripEventPublisher(rabbitMQ)
+	consumer := events.NewDriverConsumer(rabbitMQ, svc)
+	go consumer.Listen()
 
 	// gRPC server
 	server := grpc_server.NewServer()

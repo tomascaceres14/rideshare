@@ -18,7 +18,7 @@ type TripEventConsumer struct {
 	svc      domain.DriverService
 }
 
-func NewTripEventPublisher(rmq *messaging.RabbitMQ, svc domain.DriverService) *TripEventConsumer {
+func NewTripEventConsumer(rmq *messaging.RabbitMQ, svc domain.DriverService) *TripEventConsumer {
 	return &TripEventConsumer{
 		rabbitMQ: rmq,
 		svc:      svc,

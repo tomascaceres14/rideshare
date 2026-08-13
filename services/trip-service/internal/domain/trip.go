@@ -30,6 +30,8 @@ type TripRepository interface {
 	CreateTrip(ctx context.Context, trip *TripModel) (*TripModel, error)
 	SaveRideFare(ctx context.Context, fare *RideFareModel) (*RideFareModel, error)
 	GetRideFareByID(ctx context.Context, id string) (*RideFareModel, error)
+	GetTripByID(ctx context.Context, tripID string) (*TripModel, error)
+	UpdateTrip(ctx context.Context, trip *TripModel) (*TripModel, error)
 }
 
 type TripService interface {
@@ -38,6 +40,8 @@ type TripService interface {
 	SaveTripFares(ctx context.Context, fares []*RideFareModel, route *OsrmAPIResponse, userID string) ([]*RideFareModel, error)
 	EstimatePackagesPriceWithRoute(route *OsrmAPIResponse) []*RideFareModel
 	GetAndValidateFare(ctx context.Context, fareID, userID string) (*RideFareModel, error)
+	GetTripByID(ctx context.Context, tripID string) (*TripModel, error)
+	UpdateTrip(ctx context.Context, trip *TripModel) (*TripModel, error)
 }
 
 func (o *OsrmAPIResponse) ToProto() *pb.Route {
