@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math/rand/v2"
 	"ride-sharing/services/driver-service/internal/domain"
 	"ride-sharing/shared/contracts"
 	"ride-sharing/shared/messaging"
@@ -41,7 +42,7 @@ func (tc *TripEventConsumer) Listen() error {
 
 		log.Printf("Driver received trip message")
 		switch msg.RoutingKey {
-		case contracts.TripEventCreated:
+		case contracts.TripEventCreated, contracts.TripEventDriverNotInterested:
 			return tc.handleFindAndNotifyDrivers(ctx, payload)
 		}
 
@@ -64,7 +65,8 @@ func (tc *TripEventConsumer) handleFindAndNotifyDrivers(ctx context.Context, tri
 		return fmt.Errorf("No drivers found.")
 	}
 
-	selectedDriverID := suitables[0]
+	selectedDriver := rand.IntN(len(suitables))
+	selectedDriverID := suitables[selectedDriver]
 
 	response, err := json.Marshal(trip)
 	if err != nil {

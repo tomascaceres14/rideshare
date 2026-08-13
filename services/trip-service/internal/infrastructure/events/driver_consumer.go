@@ -43,8 +43,7 @@ func (dc *DriverConsumer) Listen() error {
 		case contracts.DriverCmdTripAccept:
 			return dc.handleTripAccepted(ctx, &payload)
 		case contracts.DriverCmdTripDecline:
-			log.Println("declined trip")
-			return nil
+			return dc.handleTripDeclined(ctx, &payload)
 		}
 
 		log.Printf("Unknown driver event: %+v", msg.RoutingKey)
@@ -82,6 +81,36 @@ func (dc *DriverConsumer) handleTripAccepted(ctx context.Context, driverResponse
 	}
 	if err := dc.rabbitMQ.PublishMessage(ctx, contracts.TripEventDriverAssigned, contracts.AmqpMessage{
 		OwnerID: driverResponse.Driver.Id,
+		Data:    newTrip,
+	}); err != nil {
+		log.Printf("Error sending message: %s. Error: %v", contracts.TripEventDriverAssigned, err)
+		return err
+	}
+
+	// TODO: Notify payment service to start payment link
+
+	return nil
+}
+
+func (dc *DriverConsumer) handleTripDeclined(ctx context.Context, driverResponse *messaging.DriverTripResponseData) error {
+	trip, err := dc.svc.GetTripByID(ctx, driverResponse.TripID)
+	if err != nil {
+		fmt.Printf("Error fetching trip: %s\n", err)
+		return err
+	}
+
+	if trip == nil {
+		fmt.Printf("Trip is nil: %s", driverResponse.TripID)
+		return nil
+	}
+
+	newTrip, err := json.Marshal(trip.ToProto())
+	if err != nil {
+		return err
+	}
+
+	if err := dc.rabbitMQ.PublishMessage(ctx, contracts.TripEventDriverNotInterested, contracts.AmqpMessage{
+		OwnerID: driverResponse.RiderID,
 		Data:    newTrip,
 	}); err != nil {
 		log.Printf("Error sending message: %s. Error: %v", contracts.TripEventDriverAssigned, err)
