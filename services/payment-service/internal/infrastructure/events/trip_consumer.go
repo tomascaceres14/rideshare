@@ -44,10 +44,9 @@ func (tc *TripEventConsumer) Listen() error {
 				log.Printf("Error handling trip accepted: %v", err)
 				return err
 			}
-		default:
-			log.Println("Unknown routing key: %s", msg.RoutingKey)
 		}
 
+		log.Printf("Unknown trip event: %s", msg.RoutingKey)
 		return nil
 	})
 	return nil
