@@ -7,6 +7,9 @@ import (
 	"os/signal"
 	"syscall"
 
+	"ride-sharing/services/payment-service/internal/infrastructure/events"
+	stripeProcessor "ride-sharing/services/payment-service/internal/infrastructure/stripe"
+	"ride-sharing/services/payment-service/internal/service"
 	"ride-sharing/services/payment-service/pkg/types"
 	"ride-sharing/shared/env"
 	"ride-sharing/shared/messaging"
@@ -48,6 +51,16 @@ func main() {
 		log.Fatal(err)
 	}
 	defer rabbitmq.Close()
+
+	paymentProcessor := stripeProcessor.NewStripeClient(stripeCfg)
+	svc := service.NewPaymentService(paymentProcessor)
+	consumer := events.NewTripEventConsumer(rabbitmq, svc)
+
+	go func() {
+		if err := consumer.Listen(); err != nil {
+			log.Printf("Error listening consumer: %v", err)
+		}
+	}()
 
 	log.Println("Starting RabbitMQ connection")
 

@@ -88,6 +88,23 @@ func (dc *DriverConsumer) handleTripAccepted(ctx context.Context, driverResponse
 	}
 
 	// TODO: Notify payment service to start payment link
+	marshalledPayload, err := json.Marshal(messaging.PaymentTripResponseData{
+		TripID:   trip.ID.Hex(),
+		UserID:   trip.UserID,
+		DriverID: trip.Driver.Id,
+		Amount:   trip.RideFare.TotalPriceInCents,
+		Currency: "USD",
+	})
+	if err != nil {
+		return err
+	}
+
+	if err := dc.rabbitMQ.PublishMessage(ctx, contracts.PaymentCmdCreateSession, contracts.AmqpMessage{
+		Data:    marshalledPayload,
+		OwnerID: trip.UserID,
+	}); err != nil {
+		return fmt.Errorf("Error publishing message to %s. Error: %v", contracts.PaymentCmdCreateSession, err)
+	}
 
 	return nil
 }
