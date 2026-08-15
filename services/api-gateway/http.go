@@ -84,3 +84,5 @@ func handleTripStart(w http.ResponseWriter, r *http.Request) {
 	res := contracts.APIResponse{Data: createdTrip}
 	json_utils.WriteJSON(w, http.StatusCreated, res)
 }
+
+func handleStripeResponse(w http.ResponseWriter, r *http.Request) {}

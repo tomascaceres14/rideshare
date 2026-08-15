@@ -36,7 +36,7 @@ func main() {
 	mux.HandleFunc("/ws/riders", func(w http.ResponseWriter, r *http.Request) {
 		handleRiderWebSocket(w, r, rb)
 	})
-
+	mux.HandleFunc("POST /stripe/webhook", handleStripeResponse)
 	sv := &http.Server{
 		Addr:    httpAddr,
 		Handler: mux,

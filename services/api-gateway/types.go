@@ -11,6 +11,8 @@ type previewTripRequest struct {
 	Destination types.Coordinate `json:"destination"`
 }
 
+
+
 func (r *previewTripRequest) ToProto() *pb.PreviewTripRequest {
 	return &pb.PreviewTripRequest{
 		UserID: r.UserID,
