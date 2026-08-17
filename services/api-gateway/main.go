@@ -30,13 +30,16 @@ func main() {
 
 	mux.HandleFunc("POST /trip/preview", enableCORS(handleTripReview))
 	mux.HandleFunc("POST /trip/start", enableCORS(handleTripStart))
+	mux.HandleFunc("POST /webhook/stripe", func(w http.ResponseWriter, r *http.Request) {
+		handleStripeWebhook(w, r, rb)
+	})
 	mux.HandleFunc("/ws/drivers", func(w http.ResponseWriter, r *http.Request) {
 		handleDriverWebSocket(w, r, rb)
 	})
 	mux.HandleFunc("/ws/riders", func(w http.ResponseWriter, r *http.Request) {
 		handleRiderWebSocket(w, r, rb)
 	})
-	mux.HandleFunc("POST /stripe/webhook", handleStripeResponse)
+
 	sv := &http.Server{
 		Addr:    httpAddr,
 		Handler: mux,
