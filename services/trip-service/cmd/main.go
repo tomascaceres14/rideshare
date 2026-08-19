@@ -12,14 +12,17 @@ import (
 	"ride-sharing/services/trip-service/internal/service"
 	"ride-sharing/shared/env"
 	"ride-sharing/shared/messaging"
+	"ride-sharing/shared/tracing"
 	"syscall"
 
 	grpc_server "google.golang.org/grpc"
 )
 
 var (
-	grpcAddr = env.GetString("GRPC_ADDR", ":9093")
-	ampqUri  = env.GetString("RABBITMQ_URI", "amqp://guest:guest@rabbitmq:5672/")
+	grpcAddr       = env.GetString("GRPC_ADDR", ":9093")
+	ampqUri        = env.GetString("RABBITMQ_URI", "amqp://guest:guest@rabbitmq:5672/")
+	enviroment     = env.GetString("ENVIROMENT", "development")
+	jaegerEndpoint = env.GetString("JAEGER_ENDPOINT", "http://jaeger:14268/api/traces")
 )
 
 func main() {
@@ -34,6 +37,20 @@ func main() {
 		<-sigCh
 		cancel()
 	}()
+
+	// Initialize tracing
+	tracerCfg := tracing.Config{
+		ServiceName:    "trip-service",
+		Enviroment:     enviroment,
+		JaegerEndpoint: jaegerEndpoint,
+	}
+
+	traceShutdown, err := tracing.InitTracer(tracerCfg)
+	if err != nil {
+		log.Fatalf("Error initializing tracing: %v", err)
+	}
+
+	defer traceShutdown(ctx)
 
 	// Initalize layers and server
 	inmemRepo := repository.NewInmemRepository()
@@ -51,7 +68,7 @@ func main() {
 	go consumer.Listen()
 
 	// gRPC server
-	server := grpc_server.NewServer()
+	server := grpc_server.NewServer(tracing.WithTracingInterceptors()...)
 	grpc.NewGRPCHandler(server, svc, publisher)
 
 	// Run gRPC server

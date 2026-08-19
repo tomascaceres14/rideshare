@@ -11,14 +11,34 @@ import (
 
 	"ride-sharing/shared/env"
 	"ride-sharing/shared/messaging"
+	"ride-sharing/shared/tracing"
 )
 
 var (
-	httpAddr = env.GetString("HTTP_ADDR", ":8081")
+	httpAddr       = env.GetString("HTTP_ADDR", ":8081")
+		enviroment     = env.GetString("ENVIROMENT", "development")
+		jaegerEndpoint = env.GetString("JAEGER_ENDPOINT", "http://jaeger:14268/api/traces")
 )
 
 func main() {
 	log.Println("Starting API Gateway")
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Initialize tracing
+	tracerCfg := tracing.Config{
+		ServiceName:    "api-gateway",
+		Enviroment:     enviroment,
+		JaegerEndpoint: jaegerEndpoint,
+	}
+
+	traceShutdown, err := tracing.InitTracer(tracerCfg)
+	if err != nil {
+		log.Fatalf("Error initializing tracing: %v", err)
+	}
+
+	defer traceShutdown(ctx)
 
 	mux := http.NewServeMux()
 
@@ -28,17 +48,17 @@ func main() {
 		return
 	}
 
-	mux.HandleFunc("POST /trip/preview", enableCORS(handleTripReview))
-	mux.HandleFunc("POST /trip/start", enableCORS(handleTripStart))
-	mux.HandleFunc("POST /webhook/stripe", func(w http.ResponseWriter, r *http.Request) {
+	mux.Handle("POST /trip/preview", tracing.WrapHandlerFunc(enableCORS(handleTripReview), "/trip/preview"))
+	mux.Handle("POST /trip/start", tracing.WrapHandlerFunc(enableCORS(handleTripStart), "/trip/start"))
+	mux.Handle("POST /webhook/stripe", tracing.WrapHandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		handleStripeWebhook(w, r, rb)
-	})
-	mux.HandleFunc("/ws/drivers", func(w http.ResponseWriter, r *http.Request) {
+	}, "/webhook/stripe"))
+	mux.Handle("/ws/drivers", tracing.WrapHandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		handleDriverWebSocket(w, r, rb)
-	})
-	mux.HandleFunc("/ws/riders", func(w http.ResponseWriter, r *http.Request) {
+	}, "/ws/drivers"))
+	mux.Handle("/ws/riders", tracing.WrapHandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		handleRiderWebSocket(w, r, rb)
-	})
+	}, "/ws/riders"))
 
 	sv := &http.Server{
 		Addr:    httpAddr,

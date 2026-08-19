@@ -12,27 +12,43 @@ import (
 	"ride-sharing/services/driver-service/internal/service"
 	"ride-sharing/shared/env"
 	"ride-sharing/shared/messaging"
+	"ride-sharing/shared/tracing"
 	"syscall"
 
 	grpc_server "google.golang.org/grpc"
 )
 
 var (
-	grpcAddr = env.GetString("GRPC_ADDR", ":9092")
-	amqpUri  = env.GetString("RABBITMQ_URI", "amqp://guest:guest@rabbitmq:5672/")
+	grpcAddr       = env.GetString("GRPC_ADDR", ":9092")
+	amqpUri        = env.GetString("RABBITMQ_URI", "amqp://guest:guest@rabbitmq:5672/")
+	enviroment     = env.GetString("ENVIROMENT", "development")
+	jaegerEndpoint = env.GetString("JAEGER_ENDPOINT", "http://jaeger:14268/api/traces")
 )
 
 func main() {
 
-	server := grpc_server.NewServer()
-	repo := repository.NewInmemRepository()
-	svc := service.NewDriverService(repo)
-	grpc.NewGRPCHandler(server, svc)
-	
-
 	// Shutdown for K8S syscalls
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
+	// Initialize tracing
+	tracerCfg := tracing.Config{
+		ServiceName:    "driver-service",
+		Enviroment:     enviroment,
+		JaegerEndpoint: jaegerEndpoint,
+	}
+
+	traceShutdown, err := tracing.InitTracer(tracerCfg)
+	if err != nil {
+		log.Fatalf("Error initializing tracing: %v", err)
+	}
+
+	defer traceShutdown(ctx)
+
+	server := grpc_server.NewServer(tracing.WithTracingInterceptors()...)
+	repo := repository.NewInmemRepository()
+	svc := service.NewDriverService(repo)
+	grpc.NewGRPCHandler(server, svc)
 
 	go func() {
 		sigCh := make(chan os.Signal, 1)

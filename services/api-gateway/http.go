@@ -10,12 +10,17 @@ import (
 	"ride-sharing/shared/env"
 	json_utils "ride-sharing/shared/json"
 	"ride-sharing/shared/messaging"
+	"ride-sharing/shared/tracing"
 
 	"github.com/stripe/stripe-go/v86"
 	"github.com/stripe/stripe-go/v86/webhook"
 )
 
+var tracer = tracing.GetTracer("api-gateway")
+
 func handleTripReview(w http.ResponseWriter, r *http.Request) {
+	ctx, span := tracer.Start(r.Context(), "handleTripPreview")
+	defer span.End()
 
 	var reqBody previewTripRequest
 	w.Header().Set("Content-Type", "application/json")
@@ -42,7 +47,7 @@ func handleTripReview(w http.ResponseWriter, r *http.Request) {
 
 	defer tripService.Close()
 
-	tripPreview, err := tripService.Client.PreviewTrip(r.Context(), reqBody.ToProto())
+	tripPreview, err := tripService.Client.PreviewTrip(ctx, reqBody.ToProto())
 	if err != nil {
 		log.Printf("Failed to preview trip: %s", err)
 		http.Error(w, "Failed to preview trip", 500)
