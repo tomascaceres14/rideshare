@@ -214,7 +214,6 @@ func (r *RabbitMQ) setupExchangesAndQueues() error {
 func (r *RabbitMQ) declareAndBindQueue(queueName string, exchange string, routingKeys []string) error {
 	args := amqp.Table{
 		"x-dead-letter-exchange": DeadLetterExchange, //DLQ
-		amqp.QueueTypeArg:        amqp.QueueTypeQuorum,
 	}
 
 	q, err := r.Chan.QueueDeclare(
