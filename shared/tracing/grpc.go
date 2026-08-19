@@ -13,6 +13,16 @@ func WithTracingInterceptors() []grpc.ServerOption {
 	}
 }
 
+func DialOptionsWithStracing() []grpc.DialOption {
+	return []grpc.DialOption{
+		grpc.WithStatsHandler(newClientHandler()),
+	}
+}
+
 func newServerHandler() stats.Handler {
 	return otelgrpc.NewServerHandler(otelgrpc.WithTracerProvider(otel.GetTracerProvider()))
+}
+
+func newClientHandler() stats.Handler {
+	return otelgrpc.NewClientHandler(otelgrpc.WithTracerProvider(otel.GetTracerProvider()))
 }

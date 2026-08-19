@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"ride-sharing/shared/contracts"
+	"ride-sharing/shared/tracing"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
@@ -195,24 +196,31 @@ func (r *RabbitMQ) declareAndBindQueue(queueName string, exchange string, routin
 	return nil
 }
 
-func (r *RabbitMQ) PublishMessage(ctx context.Context, routingKey string, msg contracts.AmqpMessage) error {
+func (r *RabbitMQ) PublishMessage(ctx context.Context, routingKey string, message contracts.AmqpMessage) error {
 	log.Printf("Publishing msg with routing key: %s", routingKey)
 
-	jsonMsg, err := json.Marshal(msg)
+	jsonMsg, err := json.Marshal(message)
 	if err != nil {
 		return fmt.Errorf("Error marshaling message: %s", err)
 	}
 
+	msg := amqp.Publishing{
+		DeliveryMode: amqp.Persistent,
+		ContentType:  "application/json",
+		Body:         jsonMsg,
+	}
+
+	return tracing.TracedPublisher(ctx, TripExchange, routingKey, msg, r.publish)
+}
+
+func (r *RabbitMQ) publish(ctx context.Context, exchange, routingKey string, msg amqp.Publishing) error {
 	return r.Chan.PublishWithContext(ctx,
 		TripExchange, // exchange
 		routingKey,   // routing key
 		false,        // mandatory
 		false,        // immediate
-		amqp.Publishing{
-			ContentType:  "text/plain",
-			Body:         jsonMsg,
-			DeliveryMode: amqp.Persistent,
-		})
+		msg,
+	)
 }
 
 type MessageHandler func(context.Context, amqp.Delivery) error
@@ -242,20 +250,24 @@ func (r *RabbitMQ) ConsumeMessages(qName string, handler MessageHandler) error {
 		return err
 	}
 
-	ctx := context.Background()
-
 	go func() {
 		for msg := range msgs {
-			if err := handler(ctx, msg); err != nil {
-				log.Printf("ERROR: Failed to handle message: %v.", err)
-				if nackErr := msg.Nack(false, false); nackErr != nil {
-					log.Printf("ERROR: Failed to nack msg: %s", nackErr)
-				}
-				continue
-			}
 
-			if ackErr := msg.Ack(false); ackErr != nil {
-				log.Printf("ERROR: Failed to ack msg: %s", ackErr)
+			if err := tracing.TracedConsumer(msg, func(ctx context.Context, d amqp.Delivery) error {
+				if err := handler(ctx, msg); err != nil {
+					log.Printf("ERROR: Failed to handle message: %v.", err)
+					if nackErr := msg.Nack(false, false); nackErr != nil {
+						log.Printf("ERROR: Failed to nack msg: %s", nackErr)
+					}
+					return err
+				}
+
+				if ackErr := msg.Ack(false); ackErr != nil {
+					log.Printf("ERROR: Failed to ack msg: %s", ackErr)
+				}
+				return nil
+			}); err != nil {
+				log.Printf("Error processing message: %v", err)
 			}
 		}
 	}()
