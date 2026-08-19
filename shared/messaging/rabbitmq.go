@@ -7,13 +7,15 @@ import (
 	"fmt"
 	"log"
 	"ride-sharing/shared/contracts"
+	"ride-sharing/shared/retry"
 	"ride-sharing/shared/tracing"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
 const (
-	TripExchange = "trip"
+	TripExchange       = "trip"
+	DeadLetterExchange = "dlx"
 )
 
 type RabbitMQ struct {
@@ -59,13 +61,57 @@ func (r *RabbitMQ) Close() {
 		r.conn.Close()
 	}
 }
+func (r *RabbitMQ) setupDeadLetterExchange() error {
+	err := r.Chan.ExchangeDeclare(
+		DeadLetterExchange, // name
+		amqp.ExchangeTopic, // type
+		true,               // durability
+		false,              // auto-deleted
+		false,              // internal
+		false,              // no-wait
+		nil,                // arguments
+	)
+	if err != nil {
+		return fmt.Errorf("Error declaring Exchange: %s. Error: %s", DeadLetterExchange, err)
+	}
 
+	q, err := r.Chan.QueueDeclare(
+		DeadLetterQueue, // name
+		true,            // durability
+		false,           // delete when unused
+		false,           // exclusive
+		false,           // no-wait
+		amqp.Table{
+			amqp.QueueTypeArg: amqp.QueueTypeQuorum,
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("Error declaring Queue: %s. Error: %s", q.Name, err)
+	}
+
+	err = r.Chan.QueueBind(
+		q.Name,
+		"#",
+		DeadLetterExchange,
+		false,
+		nil,
+	)
+	if err != nil {
+		return fmt.Errorf("Error declaring Dead Letter Queue bind. Error: %s", err)
+	}
+
+	return nil
+}
 func (r *RabbitMQ) setupExchangesAndQueues() error {
+
+	if err := r.setupDeadLetterExchange(); err != nil {
+		return err
+	}
 
 	err := r.Chan.ExchangeDeclare(
 		TripExchange,       // name
 		amqp.ExchangeTopic, // type
-		false,              // durability
+		true,               // durability
 		false,              // auto-deleted
 		false,              // internal
 		false,              // no-wait
@@ -166,15 +212,18 @@ func (r *RabbitMQ) setupExchangesAndQueues() error {
 }
 
 func (r *RabbitMQ) declareAndBindQueue(queueName string, exchange string, routingKeys []string) error {
+	args := amqp.Table{
+		"x-dead-letter-exchange": DeadLetterExchange, //DLQ
+		amqp.QueueTypeArg:        amqp.QueueTypeQuorum,
+	}
+
 	q, err := r.Chan.QueueDeclare(
 		queueName, // name
 		true,      // durability
 		false,     // delete when unused
 		false,     // exclusive
 		false,     // no-wait
-		amqp.Table{
-			amqp.QueueTypeArg: amqp.QueueTypeQuorum,
-		},
+		args,      // arguments with DLX cfg
 	)
 	if err != nil {
 		return fmt.Errorf("Error declaring Queue: %s. Error: %s", q.Name, err)
@@ -245,26 +294,42 @@ func (r *RabbitMQ) ConsumeMessages(qName string, handler MessageHandler) error {
 		false, // no-wait
 		nil,   // args
 	)
-
 	if err != nil {
 		return err
 	}
 
 	go func() {
 		for msg := range msgs {
-
 			if err := tracing.TracedConsumer(msg, func(ctx context.Context, d amqp.Delivery) error {
-				if err := handler(ctx, msg); err != nil {
-					log.Printf("ERROR: Failed to handle message: %v.", err)
-					if nackErr := msg.Nack(false, false); nackErr != nil {
-						log.Printf("ERROR: Failed to nack msg: %s", nackErr)
+				cfg := retry.DefaultConfig()
+				err := retry.WithBackoff(ctx, cfg, func() error {
+					return handler(ctx, msg)
+				})
+				if err != nil {
+					log.Printf("Message processing failed after %d retries for message ID: %s. Error: %v", cfg.MaxRetries, d.MessageId, err)
+
+					// Add failure context before sending to DLQ
+					headers := amqp.Table{}
+					if d.Headers != nil {
+						headers = d.Headers
 					}
+
+					headers["x-count-retries"] = cfg.MaxRetries
+					headers["x-death-reason"] = err.Error()
+					headers["x-original-exchange"] = d.Exchange
+					headers["x-original-routing-key"] = d.RoutingKey
+
+					d.Headers = headers
+
+					// Reject without requeue. Message will go to DLQ
+					d.Reject(false)
 					return err
 				}
 
 				if ackErr := msg.Ack(false); ackErr != nil {
 					log.Printf("ERROR: Failed to ack msg: %s", ackErr)
 				}
+
 				return nil
 			}); err != nil {
 				log.Printf("Error processing message: %v", err)

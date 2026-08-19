@@ -3,6 +3,7 @@ package messaging
 import pb "ride-sharing/shared/proto/trip"
 
 const (
+	DeadLetterQueue                  = "dead_letter_queue"
 	FindAvailableDriversQueue        = "find_available_drivers"
 	DriverCmdTripRequestQueue        = "driver_cmd_trip_request"
 	DriverTripResponseQueue          = "driver_trip_response"
