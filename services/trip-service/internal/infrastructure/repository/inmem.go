@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"ride-sharing/services/trip-service/internal/domain"
+	pb "ride-sharing/shared/proto/trip"
 )
 
 type InmemRepository struct {
@@ -45,7 +46,11 @@ func (r *InmemRepository) GetTripByID(ctx context.Context, tripID string) (*doma
 
 	return trip, nil
 }
-func (r *InmemRepository) UpdateTrip(ctx context.Context, trip *domain.TripModel) (*domain.TripModel, error) {
-	r.trips[trip.ID.Hex()] = trip
-	return trip, nil
+
+func (r *InmemRepository) UpdateTrip(ctx context.Context, tripID, status string, driver *pb.Driver) error {
+	trip, _ := r.trips[tripID]
+	trip.Status = status
+	trip.Driver = driver
+	r.trips[tripID] = trip
+	return nil
 }

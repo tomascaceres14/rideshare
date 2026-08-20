@@ -9,7 +9,7 @@ import (
 )
 
 type TripModel struct {
-	ID       primitive.ObjectID `json:"id"`
+	ID       primitive.ObjectID `json:"id" bson:"_id,omitempty":`
 	UserID   string             `json:"userID"`
 	Status   string             `json:"status"`
 	RideFare *RideFareModel     `json:"ride_fare"`
@@ -31,7 +31,7 @@ type TripRepository interface {
 	SaveRideFare(ctx context.Context, fare *RideFareModel) (*RideFareModel, error)
 	GetRideFareByID(ctx context.Context, id string) (*RideFareModel, error)
 	GetTripByID(ctx context.Context, tripID string) (*TripModel, error)
-	UpdateTrip(ctx context.Context, trip *TripModel) (*TripModel, error)
+	UpdateTrip(ctx context.Context, tripID, status string, trip *pb.Driver) error
 }
 
 type TripService interface {
@@ -41,7 +41,7 @@ type TripService interface {
 	EstimatePackagesPriceWithRoute(route *OsrmAPIResponse) []*RideFareModel
 	GetAndValidateFare(ctx context.Context, fareID, userID string) (*RideFareModel, error)
 	GetTripByID(ctx context.Context, tripID string) (*TripModel, error)
-	UpdateTrip(ctx context.Context, trip *TripModel) (*TripModel, error)
+	UpdateTrip(ctx context.Context, tripID, status string, driver *pb.Driver) error
 }
 
 func (o *OsrmAPIResponse) ToProto() *pb.Route {

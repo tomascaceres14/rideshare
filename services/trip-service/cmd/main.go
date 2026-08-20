@@ -10,6 +10,7 @@ import (
 	"ride-sharing/services/trip-service/internal/infrastructure/grpc"
 	"ride-sharing/services/trip-service/internal/infrastructure/repository"
 	"ride-sharing/services/trip-service/internal/service"
+	"ride-sharing/shared/db"
 	"ride-sharing/shared/env"
 	"ride-sharing/shared/messaging"
 	"ride-sharing/shared/tracing"
@@ -52,9 +53,17 @@ func main() {
 
 	defer traceShutdown(ctx)
 
-	// Initalize layers and server
-	inmemRepo := repository.NewInmemRepository()
-	svc := service.NewTripService(inmemRepo)
+	// MongoDB
+	mongoCfg := db.NewMongoDefaultConfig()
+	mongoClient, err := db.NewMongoClient(ctx, mongoCfg)
+	if err != nil {
+		log.Printf("Error initializing databse: %v", err)
+		return
+	}
+	defer mongoClient.Disconnect(ctx)
+
+	mongoDB := db.GetDatabase(mongoClient, mongoCfg)
+
 	// RabbitMQ
 	log.Println("Starting RabbitMQ connection")
 	rabbitMQ, err := messaging.NewRabbitMQ(ampqUri)
@@ -62,6 +71,11 @@ func main() {
 		log.Fatal(err)
 	}
 	defer rabbitMQ.Close()
+
+	// Initalize layers and server
+	//inmemRepo := repository.NewInmemRepository()
+	mongoRepo := repository.NewMongoRepository(mongoDB)
+	svc := service.NewTripService(mongoRepo)
 
 	publisher := events.NewTripEventPublisher(rabbitMQ)
 	consumer := events.NewDriverConsumer(rabbitMQ, svc)

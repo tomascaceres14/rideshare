@@ -7,7 +7,7 @@ import (
 	"io"
 	"net/http"
 	"ride-sharing/services/trip-service/internal/domain"
-	"ride-sharing/services/trip-service/internal/infrastructure/repository"
+	pb "ride-sharing/shared/proto/trip"
 	"ride-sharing/shared/types"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -21,7 +21,7 @@ type TripService struct {
 	repo domain.TripRepository
 }
 
-func NewTripService(repo *repository.InmemRepository) *TripService {
+func NewTripService(repo domain.TripRepository) *TripService {
 	return &TripService{
 		repo: repo,
 	}
@@ -118,8 +118,8 @@ func (s *TripService) GetTripByID(ctx context.Context, tripID string) (*domain.T
 	return s.repo.GetTripByID(ctx, tripID)
 }
 
-func (s *TripService) UpdateTrip(ctx context.Context, trip *domain.TripModel) (*domain.TripModel, error) {
-	return s.repo.UpdateTrip(ctx, trip)
+func (s *TripService) UpdateTrip(ctx context.Context, tripID, status string, driver *pb.Driver) error {
+	return s.repo.UpdateTrip(ctx, tripID, status, driver)
 }
 
 func estimateFareRoute(f *domain.RideFareModel, route *domain.OsrmAPIResponse) *domain.RideFareModel {

@@ -54,22 +54,19 @@ func (dc *DriverConsumer) Listen() error {
 
 func (dc *DriverConsumer) handleTripAccepted(ctx context.Context, driverResponse *messaging.DriverTripResponseData) error {
 	// 1. Check if trip exists in db
+	log.Printf("ACCEPTED TRIP: %s", driverResponse.TripID)
 	trip, err := dc.svc.GetTripByID(ctx, driverResponse.TripID)
 	if err != nil {
 		fmt.Printf("Error fetching trip: %s\n", err)
 		return err
 	}
-
+	log.Printf("POST FETCH TRIP: %s", trip.ID)
 	if trip == nil {
 		fmt.Printf("Trip is nil: %s", driverResponse.TripID)
 		return nil
 	}
 
-	// 2. Update trip
-	trip.Status = "accepted"
-	trip.Driver = driverResponse.Driver
-
-	if trip, err = dc.svc.UpdateTrip(ctx, trip); err != nil {
+	if err := dc.svc.UpdateTrip(ctx, trip.ID.Hex(), "accepted", driverResponse.Driver); err != nil {
 		log.Printf("Error updating trip: %v", err)
 		return err
 	}

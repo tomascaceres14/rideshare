@@ -71,7 +71,7 @@ func (h *GRPCHandler) CreateTrip(ctx context.Context, req *pb.CreateTripRequest)
 	if err != nil {
 		return &pb.CreateTripResponse{}, status.Errorf(codes.Internal, "Error fetching trip: %s", err)
 	}
-
+	log.Printf("TRIP CREATED ID: %s", trip.ID.Hex())
 	if err := h.pub.PublishTripCreated(ctx, trip); err != nil {
 		return nil, status.Errorf(codes.Internal, "Error publishing trip message: %s", err)
 	}
@@ -81,26 +81,3 @@ func (h *GRPCHandler) CreateTrip(ctx context.Context, req *pb.CreateTripRequest)
 	}, nil
 
 }
-
-func (h *GRPCHandler) ConfirmTrip(ctx context.Context, req *pb.CreateTripRequest) (*pb.CreateTripResponse, error) {
-	fare, err := h.svc.GetAndValidateFare(ctx, req.GetRideFareID(), req.GetUserID())
-	if err != nil {
-		return &pb.CreateTripResponse{}, status.Errorf(codes.Internal, "Error fetching fare: %s", err)
-	}
-
-	trip, err := h.svc.CreateTrip(ctx, fare)
-	if err != nil {
-		return &pb.CreateTripResponse{}, status.Errorf(codes.Internal, "Error fetching trip: %s", err)
-	}
-
-	if err := h.pub.PublishTripCreated(ctx, trip); err != nil {
-		return nil, status.Errorf(codes.Internal, "Error publishing trip message: %s", err)
-	}
-
-	return &pb.CreateTripResponse{
-		TripID: trip.ID.Hex(),
-	}, nil
-
-}
-
-func (h *GRPCHandler) mustEmbedUnimplementedTripServiceServer() {}
