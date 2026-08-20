@@ -33,6 +33,11 @@ spec:
                 secretKeyRef:
                   name: stripe-secrets
                   key: stripe-webhook-key
+            - name: JAEGER_ENDPOINT
+              valueFrom:
+                configMapKeyRef:
+                  key: JAEGER_ENDPOINT
+                  name: app-config
           resources:
             requests:
               memory: "128Mi"
