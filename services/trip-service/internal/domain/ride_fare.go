@@ -7,7 +7,7 @@ import (
 )
 
 type RideFareModel struct {
-	ID                primitive.ObjectID
+	ID                primitive.ObjectID `bson:"_id,omitempty"`
 	UserID            string
 	PackageSlug       string // ex: van, luxury, sedan, etc.
 	TotalPriceInCents float64
