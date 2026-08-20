@@ -9,7 +9,7 @@ import (
 )
 
 type TripModel struct {
-	ID       primitive.ObjectID `json:"id" bson:"_id,omitempty":`
+	ID       primitive.ObjectID `json:"id" bson:"_id,omitempty"`
 	UserID   string             `json:"userID"`
 	Status   string             `json:"status"`
 	RideFare *RideFareModel     `json:"ride_fare"`
